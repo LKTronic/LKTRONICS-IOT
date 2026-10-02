@@ -1,0 +1,17 @@
+# Compilation artifacts
+*.o
+*.a
+*.so
+*.dylib
+*.dll
+*.elf
+*.bin
+*.hex
+
+# IDE & Editor files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+.DS_Store
+Thumbs.db
