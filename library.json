@@ -1,6 +1,6 @@
 {
   "name": "LKTRONICS-IOT",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Universal IoT Library for LK-TRONICS Dashboard. Encapsulates HiveMQ Cloud TLS/SSL, Virtual Pins (V0-V31), automatic diagnostics, and bi-directional MQTT.",
   "keywords": [
     "iot",
