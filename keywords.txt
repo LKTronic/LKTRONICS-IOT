@@ -1,0 +1,70 @@
+#######################################
+# Syntax Coloring Map For LKTRONICS-IOT
+#######################################
+
+#######################################
+# Datatypes (KEYWORD1)
+#######################################
+LKTRONICS_IOTClass	KEYWORD1
+LKTRONICS_IOT	KEYWORD1
+LKIoTClass	KEYWORD1
+LKIoT	KEYWORD1
+LKParam	KEYWORD1
+LKVirtualPin	KEYWORD1
+
+#######################################
+# Methods and Functions (KEYWORD2)
+#######################################
+begin	KEYWORD2
+run	KEYWORD2
+virtualWrite	KEYWORD2
+on	KEYWORD2
+connected	KEYWORD2
+setFirmware	KEYWORD2
+setBattery	KEYWORD2
+setDiagnosticsInterval	KEYWORD2
+enableDiagnostics	KEYWORD2
+sendDiagnostics	KEYWORD2
+asInt	KEYWORD2
+asFloat	KEYWORD2
+asDouble	KEYWORD2
+asString	KEYWORD2
+
+#######################################
+# Constants & Macros (LITERAL1)
+#######################################
+LK_WRITE	LITERAL1
+LKIOT_WRITE	LITERAL1
+LKTRONICS_IOT_WRITE	LITERAL1
+V0	LITERAL1
+V1	LITERAL1
+V2	LITERAL1
+V3	LITERAL1
+V4	LITERAL1
+V5	LITERAL1
+V6	LITERAL1
+V7	LITERAL1
+V8	LITERAL1
+V9	LITERAL1
+V10	LITERAL1
+V11	LITERAL1
+V12	LITERAL1
+V13	LITERAL1
+V14	LITERAL1
+V15	LITERAL1
+V16	LITERAL1
+V17	LITERAL1
+V18	LITERAL1
+V19	LITERAL1
+V20	LITERAL1
+V21	LITERAL1
+V22	LITERAL1
+V23	LITERAL1
+V24	LITERAL1
+V25	LITERAL1
+V26	LITERAL1
+V27	LITERAL1
+V28	LITERAL1
+V29	LITERAL1
+V30	LITERAL1
+V31	LITERAL1
