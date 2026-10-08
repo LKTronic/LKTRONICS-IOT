@@ -463,7 +463,6 @@ void LKIoTClass::connectMQTT() {
 
     // Subscribe to both command topics with QoS 1 for reliable delivery
     _mqtt.subscribe(_topicCmd.c_str(), 1);
-    _mqtt.subscribe(_topicCmdAlt.c_str(), 1);
     Serial.println(F("[LKTRONICS-IOT] Subscribed (QoS1) to dashboard commands"));
   } else {
     Serial.print(F("[LKTRONICS-IOT] Broker connection failed, rc="));
@@ -670,6 +669,15 @@ void LKIoTClass::onMqttMessage(char* topic, byte* payload, unsigned int length) 
   // Skip self LWT echoes
   if (String(topic).endsWith("/status")) return;
 
+  // Deduplicate identical incoming messages within 300ms window
+  static String _lastProcessedMsg = "";
+  static unsigned long _lastMsgTime = 0;
+  if (msg.length() > 0 && msg == _lastProcessedMsg && (millis() - _lastMsgTime < 300)) {
+    return;
+  }
+  _lastProcessedMsg = msg;
+  _lastMsgTime = millis();
+
   StaticJsonDocument<LK_JSON_DOC_SIZE> doc;
   DeserializationError err = deserializeJson(doc, msg);
   if (err) return;
@@ -710,19 +718,16 @@ void LKIoTClass::onMqttMessage(char* topic, byte* payload, unsigned int length) 
         int v = matchedVal.toInt();
         bool state = (v != 0) || matchedVal.equalsIgnoreCase("true") || matchedVal.equalsIgnoreCase("on");
         digitalWrite(_boundPins[i].gpio, (state == _boundPins[i].activeHigh) ? HIGH : LOW);
-        Serial.printf("[LKTRONICS-IOT] Switch %s (Pin %d) -> %s\n", bKey, _boundPins[i].gpio, state ? "ON" : "OFF");
       } else if (_boundPins[i].mode == LK_PIN_PULSE) {
         int v = matchedVal.toInt();
         if (v != 0 || matchedVal.equalsIgnoreCase("true") || matchedVal.equalsIgnoreCase("on") || matchedVal.equalsIgnoreCase("pulse")) {
           digitalWrite(_boundPins[i].gpio, _boundPins[i].activeHigh ? HIGH : LOW);
           _boundPins[i].pulseStartTime = millis();
           _boundPins[i].isPulsing = true;
-          Serial.printf("[LKTRONICS-IOT] Pulse %s (Pin %d) triggered (%d ms)\n", bKey, _boundPins[i].gpio, _boundPins[i].pulseDurationMs);
         }
       } else if (_boundPins[i].mode == LK_PIN_PWM) {
         int pwm = matchedVal.toInt();
         _lkPwmWrite(_boundPins[i].gpio, pwm);
-        Serial.printf("[LKTRONICS-IOT] PWM %s (Pin %d) -> %d\n", bKey, _boundPins[i].gpio, constrain(pwm, 0, 255));
       }
     }
   }
@@ -788,7 +793,6 @@ void LKIoTClass::onMqttMessage(char* topic, byte* payload, unsigned int length) 
       int rightPwm = map(abs(rightSpeed), 0, 100, 0, 255);
       _lkPwmWrite(_boundJoys[i].pinL, leftPwm);
       _lkPwmWrite(_boundJoys[i].pinR, rightPwm);
-      Serial.printf("[LKTRONICS-IOT] Joystick %s (X:%d, Y:%d) -> Motor PWM (L:%d, R:%d on Pins %d, %d)\n", jKey, _lastJoyX[i], _lastJoyY[i], leftPwm, rightPwm, _boundJoys[i].pinL, _boundJoys[i].pinR);
     }
   }
 
