@@ -742,36 +742,67 @@ void LKIoTClass::onMqttMessage(char* topic, byte* payload, unsigned int length) 
     }
   }
 
+  // Static state tracking so single-axis updates don't reset the other axis to 0
+  static int _lastJoyX[4] = { 0, 0, 0, 0 };
+  static int _lastJoyY[4] = { 0, 0, 0, 0 };
+
   // 0.2 Auto-dispatch bound joysticks (bindJoystick)
   for (uint8_t i = 0; i < _boundJoyCount; i++) {
     const char* jKey = _boundJoys[i].key;
-    int joyX = 0, joyY = 0;
     bool hasJoy = false;
     String xKey = String(jKey) + "_x";
     String yKey = String(jKey) + "_y";
-    if (root.containsKey(xKey.c_str())) { joyX = root[xKey.c_str()].as<int>(); hasJoy = true; }
-    if (root.containsKey(yKey.c_str())) { joyY = root[yKey.c_str()].as<int>(); hasJoy = true; }
-    if (root.containsKey("joy_x")) { joyX = root["joy_x"].as<int>(); hasJoy = true; }
-    if (root.containsKey("joy_y")) { joyY = root["joy_y"].as<int>(); hasJoy = true; }
+
+    // Check direct JSON key entries
+    if (root.containsKey(xKey.c_str())) { _lastJoyX[i] = root[xKey.c_str()].as<int>(); hasJoy = true; }
+    if (root.containsKey(yKey.c_str())) { _lastJoyY[i] = root[yKey.c_str()].as<int>(); hasJoy = true; }
+    if (root.containsKey("joy_x")) { _lastJoyX[i] = root["joy_x"].as<int>(); hasJoy = true; }
+    if (root.containsKey("joy_y")) { _lastJoyY[i] = root["joy_y"].as<int>(); hasJoy = true; }
+    if (root.containsKey("x")) { _lastJoyX[i] = root["x"].as<int>(); hasJoy = true; }
+    if (root.containsKey("y")) { _lastJoyY[i] = root["y"].as<int>(); hasJoy = true; }
+
+    // Check dashboard generic command format: { pin: "joy_x", value: 45 }
+    if (pinName.length() > 0) {
+      if (pinName.equalsIgnoreCase(jKey) || pinName.equalsIgnoreCase("joy_x") || pinName.equalsIgnoreCase("x") || pinName.equalsIgnoreCase(xKey)) {
+        _lastJoyX[i] = pinValue.toInt();
+        hasJoy = true;
+      } else if (pinName.equalsIgnoreCase("joy_y") || pinName.equalsIgnoreCase("y") || pinName.equalsIgnoreCase(yKey)) {
+        _lastJoyY[i] = pinValue.toInt();
+        hasJoy = true;
+      }
+    }
+    if (root.containsKey("pin_y")) {
+      String pY = root["pin_y"].as<String>();
+      if (pY.equalsIgnoreCase("joy_y") || pY.equalsIgnoreCase("y") || pY.equalsIgnoreCase(yKey)) {
+        if (root.containsKey("value_y")) {
+          _lastJoyY[i] = root["value_y"].as<int>();
+          hasJoy = true;
+        }
+      }
+    }
+
     if (hasJoy) {
-      int leftSpeed  = constrain(joyY + joyX, -100, 100);
-      int rightSpeed = constrain(joyY - joyX, -100, 100);
+      int leftSpeed  = constrain(_lastJoyY[i] + _lastJoyX[i], -100, 100);
+      int rightSpeed = constrain(_lastJoyY[i] - _lastJoyX[i], -100, 100);
       int leftPwm  = map(abs(leftSpeed), 0, 100, 0, 255);
       int rightPwm = map(abs(rightSpeed), 0, 100, 0, 255);
       _lkPwmWrite(_boundJoys[i].pinL, leftPwm);
       _lkPwmWrite(_boundJoys[i].pinR, rightPwm);
+      Serial.printf("[LKTRONICS-IOT] Joystick %s (X:%d, Y:%d) -> Motor PWM (L:%d, R:%d on Pins %d, %d)\n", jKey, _lastJoyX[i], _lastJoyY[i], leftPwm, rightPwm, _boundJoys[i].pinL, _boundJoys[i].pinR);
     }
   }
 
-  // 1. Dispatch custom named handlers (e.g. "joy_x", "fan_pwm", "relay1")
+  // 1. Dispatch custom named handlers (e.g. "joy_x", "joy_y", "fan_pwm", "v348", "v680")
   for (uint8_t i = 0; i < _namedHandlerCount; i++) {
     const char* hKey = _namedHandlers[i].key;
     if (pinName.length() > 0 && pinName.equalsIgnoreCase(hKey)) {
       _namedHandlers[i].cb(LKParam(pinValue));
+    } else if (root.containsKey(hKey)) {
+      _namedHandlers[i].cb(LKParam(root[hKey].as<String>()));
     } else {
       for (JsonPair kv : root) {
         if (strcasecmp(kv.key().c_str(), hKey) == 0) {
-          _namedHandlers[i].cb(LKParam(pinValue.length() > 0 ? pinValue : kv.value().as<String>()));
+          _namedHandlers[i].cb(LKParam(kv.value().as<String>()));
           break;
         }
       }
