@@ -79,6 +79,213 @@ void LKIoTClass::on(LKVirtualPin pin, LKPinCallback cb) {
 }
 
 // ---------------------------------------------------------------------------
+// 1-Line Declarative Widget Auto-Bindings (Option 1)
+// ---------------------------------------------------------------------------
+enum LKPinMode {
+  LK_PIN_SWITCH = 0,
+  LK_PIN_PULSE  = 1,
+  LK_PIN_PWM    = 2
+};
+
+struct LKBoundPin {
+  char key[24];
+  uint8_t gpio;
+  uint8_t mode;
+  bool activeHigh;
+  uint16_t pulseDurationMs;
+  unsigned long pulseStartTime;
+  bool isPulsing;
+};
+
+static LKBoundPin _boundPins[32];
+static uint8_t _boundPinCount = 0;
+
+void LKIoTClass::bindSwitch(const char* key, uint8_t gpio, bool activeHigh) {
+  if (!key || _boundPinCount >= 32) return;
+  pinMode(gpio, OUTPUT);
+  digitalWrite(gpio, activeHigh ? LOW : HIGH);
+
+  for (uint8_t i = 0; i < _boundPinCount; i++) {
+    if (strcasecmp(_boundPins[i].key, key) == 0) {
+      _boundPins[i].gpio = gpio;
+      _boundPins[i].mode = LK_PIN_SWITCH;
+      _boundPins[i].activeHigh = activeHigh;
+      _boundPins[i].isPulsing = false;
+      return;
+    }
+  }
+  strncpy(_boundPins[_boundPinCount].key, key, 23);
+  _boundPins[_boundPinCount].key[23] = '\0';
+  _boundPins[_boundPinCount].gpio = gpio;
+  _boundPins[_boundPinCount].mode = LK_PIN_SWITCH;
+  _boundPins[_boundPinCount].activeHigh = activeHigh;
+  _boundPins[_boundPinCount].isPulsing = false;
+  _boundPinCount++;
+}
+
+void LKIoTClass::bindPulse(const char* key, uint8_t gpio, uint16_t durationMs, bool activeHigh) {
+  if (!key || _boundPinCount >= 32) return;
+  pinMode(gpio, OUTPUT);
+  digitalWrite(gpio, activeHigh ? LOW : HIGH);
+
+  for (uint8_t i = 0; i < _boundPinCount; i++) {
+    if (strcasecmp(_boundPins[i].key, key) == 0) {
+      _boundPins[i].gpio = gpio;
+      _boundPins[i].mode = LK_PIN_PULSE;
+      _boundPins[i].activeHigh = activeHigh;
+      _boundPins[i].pulseDurationMs = durationMs;
+      _boundPins[i].isPulsing = false;
+      return;
+    }
+  }
+  strncpy(_boundPins[_boundPinCount].key, key, 23);
+  _boundPins[_boundPinCount].key[23] = '\0';
+  _boundPins[_boundPinCount].gpio = gpio;
+  _boundPins[_boundPinCount].mode = LK_PIN_PULSE;
+  _boundPins[_boundPinCount].activeHigh = activeHigh;
+  _boundPins[_boundPinCount].pulseDurationMs = durationMs;
+  _boundPins[_boundPinCount].isPulsing = false;
+  _boundPinCount++;
+}
+
+// ---------------------------------------------------------------------------
+// Universal Hardware PWM Helpers (ESP32 Core 3.x, Core 2.x, ESP8266 & Arduino)
+// ---------------------------------------------------------------------------
+static inline void _lkPwmInit(uint8_t gpio) {
+  pinMode(gpio, OUTPUT);
+#if defined(ESP32)
+  #if defined(ESP_ARDUINO_VERSION_MAJOR) && (ESP_ARDUINO_VERSION_MAJOR >= 3)
+  ledcAttach(gpio, 5000, 8);
+  ledcWrite(gpio, 0);
+  #else
+  ledcAttachPin(gpio, gpio % 16);
+  ledcSetup(gpio % 16, 5000, 8);
+  ledcWrite(gpio % 16, 0);
+  #endif
+#else
+  analogWrite(gpio, 0);
+#endif
+}
+
+static inline void _lkPwmWrite(uint8_t gpio, int val) {
+  val = constrain(val, 0, 255);
+#if defined(ESP32)
+  #if defined(ESP_ARDUINO_VERSION_MAJOR) && (ESP_ARDUINO_VERSION_MAJOR >= 3)
+  ledcWrite(gpio, val);
+  #else
+  ledcWrite(gpio % 16, val);
+  #endif
+#else
+  analogWrite(gpio, val);
+#endif
+}
+
+void LKIoTClass::bindPWM(const char* key, uint8_t gpio) {
+  if (!key || _boundPinCount >= 32) return;
+  _lkPwmInit(gpio);
+
+  for (uint8_t i = 0; i < _boundPinCount; i++) {
+    if (strcasecmp(_boundPins[i].key, key) == 0) {
+      _boundPins[i].gpio = gpio;
+      _boundPins[i].mode = LK_PIN_PWM;
+      _boundPins[i].isPulsing = false;
+      return;
+    }
+  }
+  strncpy(_boundPins[_boundPinCount].key, key, 23);
+  _boundPins[_boundPinCount].key[23] = '\0';
+  _boundPins[_boundPinCount].gpio = gpio;
+  _boundPins[_boundPinCount].mode = LK_PIN_PWM;
+  _boundPins[_boundPinCount].activeHigh = true;
+  _boundPins[_boundPinCount].isPulsing = false;
+  _boundPinCount++;
+}
+
+void LKIoTClass::pulse(uint8_t gpio, uint16_t durationMs, bool activeHigh) {
+  pinMode(gpio, OUTPUT);
+  digitalWrite(gpio, activeHigh ? HIGH : LOW);
+  for (uint8_t i = 0; i < _boundPinCount; i++) {
+    if (_boundPins[i].gpio == gpio) {
+      _boundPins[i].pulseStartTime = millis();
+      _boundPins[i].pulseDurationMs = durationMs;
+      _boundPins[i].activeHigh = activeHigh;
+      _boundPins[i].isPulsing = true;
+      return;
+    }
+  }
+  if (_boundPinCount < 32) {
+    _boundPins[_boundPinCount].key[0] = '\0';
+    _boundPins[_boundPinCount].gpio = gpio;
+    _boundPins[_boundPinCount].mode = LK_PIN_PULSE;
+    _boundPins[_boundPinCount].activeHigh = activeHigh;
+    _boundPins[_boundPinCount].pulseDurationMs = durationMs;
+    _boundPins[_boundPinCount].pulseStartTime = millis();
+    _boundPins[_boundPinCount].isPulsing = true;
+    _boundPinCount++;
+  }
+}
+
+struct LKBoundVar {
+  char key[24];
+  uint8_t type; // 0 = float*, 1 = int*, 2 = String*
+  void* ptr;
+};
+static LKBoundVar _boundVars[16];
+static uint8_t _boundVarCount = 0;
+
+struct LKBoundJoy {
+  char key[24];
+  uint8_t pinL;
+  uint8_t pinR;
+};
+static LKBoundJoy _boundJoys[4];
+static uint8_t _boundJoyCount = 0;
+
+void LKIoTClass::bindJoystick(const char* key, uint8_t leftMotorPin, uint8_t rightMotorPin) {
+  if (!key || _boundJoyCount >= 4) return;
+  _lkPwmInit(leftMotorPin);
+  _lkPwmInit(rightMotorPin);
+  strncpy(_boundJoys[_boundJoyCount].key, key, 23);
+  _boundJoys[_boundJoyCount].key[23] = '\0';
+  _boundJoys[_boundJoyCount].pinL = leftMotorPin;
+  _boundJoys[_boundJoyCount].pinR = rightMotorPin;
+  _boundJoyCount++;
+}
+
+void LKIoTClass::bindNumber(const char* key, float* targetVar) {
+  if (!key || !targetVar || _boundVarCount >= 16) return;
+  strncpy(_boundVars[_boundVarCount].key, key, 23);
+  _boundVars[_boundVarCount].key[23] = '\0';
+  _boundVars[_boundVarCount].type = 0;
+  _boundVars[_boundVarCount].ptr = (void*)targetVar;
+  _boundVarCount++;
+}
+
+void LKIoTClass::bindNumber(const char* key, int* targetVar) {
+  if (!key || !targetVar || _boundVarCount >= 16) return;
+  strncpy(_boundVars[_boundVarCount].key, key, 23);
+  _boundVars[_boundVarCount].key[23] = '\0';
+  _boundVars[_boundVarCount].type = 1;
+  _boundVars[_boundVarCount].ptr = (void*)targetVar;
+  _boundVarCount++;
+}
+
+void LKIoTClass::bindString(const char* key, String* targetVar) {
+  if (!key || !targetVar || _boundVarCount >= 16) return;
+  strncpy(_boundVars[_boundVarCount].key, key, 23);
+  _boundVars[_boundVarCount].key[23] = '\0';
+  _boundVars[_boundVarCount].type = 2;
+  _boundVars[_boundVarCount].ptr = (void*)targetVar;
+  _boundVarCount++;
+}
+
+void LKIoTClass::sendGPS(const char* key, float lat, float lng) {
+  if (!key) return;
+  String coord = String(lat, 6) + "," + String(lng, 6);
+  virtualWrite(key, coord);
+}
+
+// ---------------------------------------------------------------------------
 // Dynamic Cloud Provisioning via Secure HTTPS
 // ---------------------------------------------------------------------------
 bool LKIoTClass::fetchCredentials(const char* apiKey) {
@@ -294,6 +501,15 @@ void LKIoTClass::run() {
       sendDiagnostics();
     }
   }
+
+  // Non-blocking auto-reset for momentary pulses (e.g. bindPulse / bindButton)
+  unsigned long now = millis();
+  for (uint8_t i = 0; i < _boundPinCount; i++) {
+    if (_boundPins[i].isPulsing && (now - _boundPins[i].pulseStartTime >= _boundPins[i].pulseDurationMs)) {
+      digitalWrite(_boundPins[i].gpio, _boundPins[i].activeHigh ? LOW : HIGH);
+      _boundPins[i].isPulsing = false;
+    }
+  }
 }
 
 bool LKIoTClass::connected() {
@@ -468,6 +684,83 @@ void LKIoTClass::onMqttMessage(char* topic, byte* payload, unsigned int length) 
   }
   if (root.containsKey("value")) {
     pinValue = root["value"].as<String>();
+  }
+
+  // 0. Auto-dispatch 1-line declarative bound pins (bindSwitch, bindPulse, bindPWM)
+  for (uint8_t i = 0; i < _boundPinCount; i++) {
+    const char* bKey = _boundPins[i].key;
+    if (!bKey || bKey[0] == '\0') continue;
+    String matchedVal = "";
+    bool match = false;
+    if (pinName.length() > 0 && pinName.equalsIgnoreCase(bKey)) {
+      matchedVal = pinValue;
+      match = true;
+    } else {
+      for (JsonPair kv : root) {
+        if (strcasecmp(kv.key().c_str(), bKey) == 0) {
+          matchedVal = pinValue.length() > 0 ? pinValue : kv.value().as<String>();
+          match = true;
+          break;
+        }
+      }
+    }
+
+    if (match) {
+      if (_boundPins[i].mode == LK_PIN_SWITCH) {
+        int v = matchedVal.toInt();
+        bool state = (v != 0) || matchedVal.equalsIgnoreCase("true") || matchedVal.equalsIgnoreCase("on");
+        digitalWrite(_boundPins[i].gpio, (state == _boundPins[i].activeHigh) ? HIGH : LOW);
+        Serial.printf("[LKTRONICS-IOT] Switch %s (Pin %d) -> %s\n", bKey, _boundPins[i].gpio, state ? "ON" : "OFF");
+      } else if (_boundPins[i].mode == LK_PIN_PULSE) {
+        int v = matchedVal.toInt();
+        if (v != 0 || matchedVal.equalsIgnoreCase("true") || matchedVal.equalsIgnoreCase("on") || matchedVal.equalsIgnoreCase("pulse")) {
+          digitalWrite(_boundPins[i].gpio, _boundPins[i].activeHigh ? HIGH : LOW);
+          _boundPins[i].pulseStartTime = millis();
+          _boundPins[i].isPulsing = true;
+          Serial.printf("[LKTRONICS-IOT] Pulse %s (Pin %d) triggered (%d ms)\n", bKey, _boundPins[i].gpio, _boundPins[i].pulseDurationMs);
+        }
+      } else if (_boundPins[i].mode == LK_PIN_PWM) {
+        int pwm = matchedVal.toInt();
+        _lkPwmWrite(_boundPins[i].gpio, pwm);
+        Serial.printf("[LKTRONICS-IOT] PWM %s (Pin %d) -> %d\n", bKey, _boundPins[i].gpio, constrain(pwm, 0, 255));
+      }
+    }
+  }
+
+  // 0.1 Auto-update bound variables (bindNumber, bindString)
+  for (uint8_t i = 0; i < _boundVarCount; i++) {
+    const char* vKey = _boundVars[i].key;
+    if (pinName.equalsIgnoreCase(vKey) || root.containsKey(vKey)) {
+      String val = pinName.equalsIgnoreCase(vKey) ? pinValue : root[vKey].as<String>();
+      if (_boundVars[i].type == 0 && _boundVars[i].ptr) {
+        *((float*)_boundVars[i].ptr) = val.toFloat();
+      } else if (_boundVars[i].type == 1 && _boundVars[i].ptr) {
+        *((int*)_boundVars[i].ptr) = val.toInt();
+      } else if (_boundVars[i].type == 2 && _boundVars[i].ptr) {
+        *((String*)_boundVars[i].ptr) = val;
+      }
+    }
+  }
+
+  // 0.2 Auto-dispatch bound joysticks (bindJoystick)
+  for (uint8_t i = 0; i < _boundJoyCount; i++) {
+    const char* jKey = _boundJoys[i].key;
+    int joyX = 0, joyY = 0;
+    bool hasJoy = false;
+    String xKey = String(jKey) + "_x";
+    String yKey = String(jKey) + "_y";
+    if (root.containsKey(xKey.c_str())) { joyX = root[xKey.c_str()].as<int>(); hasJoy = true; }
+    if (root.containsKey(yKey.c_str())) { joyY = root[yKey.c_str()].as<int>(); hasJoy = true; }
+    if (root.containsKey("joy_x")) { joyX = root["joy_x"].as<int>(); hasJoy = true; }
+    if (root.containsKey("joy_y")) { joyY = root["joy_y"].as<int>(); hasJoy = true; }
+    if (hasJoy) {
+      int leftSpeed  = constrain(joyY + joyX, -100, 100);
+      int rightSpeed = constrain(joyY - joyX, -100, 100);
+      int leftPwm  = map(abs(leftSpeed), 0, 100, 0, 255);
+      int rightPwm = map(abs(rightSpeed), 0, 100, 0, 255);
+      _lkPwmWrite(_boundJoys[i].pinL, leftPwm);
+      _lkPwmWrite(_boundJoys[i].pinR, rightPwm);
+    }
   }
 
   // 1. Dispatch custom named handlers (e.g. "joy_x", "fan_pwm", "relay1")

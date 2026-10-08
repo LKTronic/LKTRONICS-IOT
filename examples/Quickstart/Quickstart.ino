@@ -1,6 +1,6 @@
 /**
  * LKTRONICS-IOT QUICKSTART EXAMPLE
- * Demonstrates standard WiFi connection, reading sensors on V0, and toggling a relay on V1.
+ * Demonstrates 1-line declarative control binding and 1-line telemetry dispatch.
  * Auto-diagnostics (IP, WiFi RSSI, Uptime) are sent automatically in the background.
  */
 
@@ -16,19 +16,8 @@ const char* apiKey   = "YOUR_PROJECT_API_KEY";
 
 #define RELAY1_PIN 2
 
-// ---------------------------------------------------------------------------
-// Dashboard incoming command on Virtual Pin V1 (Switch or Button)
-// ---------------------------------------------------------------------------
-LK_WRITE(V1) {
-  int state = param.asInt(); // 1 = ON, 0 = OFF
-  digitalWrite(RELAY1_PIN, state);
-  Serial.print("Relay V1 turned: ");
-  Serial.println(state ? "ON" : "OFF");
-}
-
 void setup() {
   Serial.begin(115200);
-  pinMode(RELAY1_PIN, OUTPUT);
 
   // 1. Normal WiFi Connection
   Serial.print("Connecting to WiFi");
@@ -43,8 +32,8 @@ void setup() {
   // 2. Start LKTRONICS-IOT (Connects to HiveMQ TLS SSL, enables Auto-Diagnostics)
   LKTRONICS_IOT.begin(apiKey);
 
-  // (Optional 1-liner) Set custom firmware version tag
-  LKTRONICS_IOT.setFirmware("v1.0.0-prod");
+  // 3. 1-Line Control Auto-Binding (Zero Boilerplate!)
+  LKTRONICS_IOT.bindSwitch("relay1", RELAY1_PIN); // Auto-drives pin with dashboard sync
 }
 
 void loop() {
@@ -60,11 +49,9 @@ void loop() {
     int analogVal = analogRead(34);
     float simulatedTemp = 24.5 + (random(0, 50) / 10.0);
 
-    // Send to Virtual Pin V0 (Gauge, Value Display, or Chart)
-    LKTRONICS_IOT.virtualWrite(V0, simulatedTemp);
-
-    // Send to Virtual Pin V2
-    LKTRONICS_IOT.virtualWrite(V2, analogVal);
+    // 1-Line Telemetry Sends
+    LKTRONICS_IOT.send("temperature", simulatedTemp);
+    LKTRONICS_IOT.send("sensor_val", analogVal);
 
     Serial.print("Telemetry Sent -> Temp: ");
     Serial.print(simulatedTemp);

@@ -108,6 +108,47 @@ public:
   void on(const char* key, LKPinCallback cb);
   void on(LKVirtualPin pin, LKPinCallback cb);
 
+  // -------------------------------------------------------------------------
+  // 1-LINE DECLARATIVE WIDGET AUTO-BINDINGS (Option 1)
+  // Eliminates complex lambdas, JSON parsing, and boilerplate code!
+  // -------------------------------------------------------------------------
+  // 1. Toggle Switch / Relay: Automatically sets pinMode and controls pin on ON/OFF commands
+  void bindSwitch(const char* key, uint8_t gpio, bool activeHigh = true);
+  void bindRelay(const char* key, uint8_t gpio, bool activeHigh = true) { bindSwitch(key, gpio, activeHigh); }
+
+  // 2. Push Button / Pulse: Automatically sets pinMode, drives HIGH, and auto-resets to LOW (non-blocking!)
+  void bindPulse(const char* key, uint8_t gpio, uint16_t durationMs = 500, bool activeHigh = true);
+  void bindButton(const char* key, uint8_t gpio, uint16_t durationMs = 500, bool activeHigh = true) { bindPulse(key, gpio, durationMs, activeHigh); }
+
+  // 3. Slider / Dimmer / Fan Speed PWM: Automatically writes PWM (0 - 255) to hardware pin
+  void bindPWM(const char* key, uint8_t gpio);
+  void bindSlider(const char* key, uint8_t gpio) { bindPWM(key, gpio); }
+
+  // 4. Joystick (2-Axis): Automatically maps differential steering to Left & Right motor PWM pins
+  void bindJoystick(const char* key, uint8_t leftMotorPin, uint8_t rightMotorPin);
+
+  // 5. Numerical Stepper / Setpoint: Automatically updates variable pointer on cloud command
+  void bindNumber(const char* key, float* targetVar);
+  void bindNumber(const char* key, int* targetVar);
+
+  // 6. Dropdown / Mode Selector: Automatically updates String variable pointer
+  void bindString(const char* key, String* targetVar);
+
+  // 7. Manual non-blocking pulse helper: pulse any pin for durationMs
+  void pulse(uint8_t gpio, uint16_t durationMs = 500, bool activeHigh = true);
+
+  // 8. Convenient 1-line Telemetry send helpers (clean aliases of virtualWrite)
+  template <typename T>
+  void send(const char* key, T value) { virtualWrite(key, value); }
+  void send(const char* key, float value, int decimals = 2) { virtualWrite(key, value, decimals); }
+  void send(const char* key, double value, int decimals = 2) { virtualWrite(key, value, decimals); }
+  
+  // 9. GPS Map Tracker helper (sends latitude and longitude for Map Widget)
+  void sendGPS(const char* key, float lat, float lng);
+
+  template <typename T>
+  void sendTelemetry(const char* key, T value) { virtualWrite(key, value); }
+
   // Auto-Diagnostics for Device Card, Signal Strength, and Uptime widgets
   void setFirmware(const char* version);
   void setBattery(int percent);

@@ -71,3 +71,24 @@ void loop() {
   }
 }
 ```
+
+---
+
+## 🎛️ Animated Industrial Widgets Integration
+
+Write to the dynamic animated widgets on your dashboard effortlessly:
+
+```cpp
+// 1. Industrial Fan: 1 = Spin animation, 0 = Stop
+LKTRONICS_IOT.virtualWrite("v605", 1);
+
+// 2. Mist Sprayer: 1 = Atomized spray animation, 0 = Idle
+LKTRONICS_IOT.virtualWrite("v355", 1);
+
+// 3. Liquid Tank: 0.0 to 100.0% with realistic floating wave physics
+LKTRONICS_IOT.virtualWrite("v156", 78.5);
+
+// 4. Multi-LED Array: 1 = Single LED, or bitmask (3 = LEDs 1&2, 7 = LEDs 1,2&3)
+LKTRONICS_IOT.virtualWrite("v112", 1);
+```
+
