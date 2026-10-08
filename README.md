@@ -92,3 +92,35 @@ LKTRONICS_IOT.virtualWrite("v156", 78.5);
 LKTRONICS_IOT.virtualWrite("v112", 1);
 ```
 
+
+---
+
+## 🎛️ Virtual Pins, Dropdowns & Numeric Inputs (v1.0.4+)
+
+Receive dashboard commands, dropdown selections, and numeric setpoints without dedicating physical GPIO pins:
+
+`cpp
+// 1. Dropdown Option Selector
+LKTRONICS_IOT.on("v680", [](const LKParam& p) {
+  String mode = p.asString();
+  Serial.printf(">> Mode changed to: %s\n", mode.c_str());
+});
+
+// 2. Numeric Input / Setpoint
+LKTRONICS_IOT.on("v348", [](const LKParam& p) {
+  int setpoint = p.asInt();
+  Serial.printf(">> Target setpoint: %d\n", setpoint);
+});
+
+// 3. Virtual Switch
+LKTRONICS_IOT.on("v104", [](const LKParam& p) {
+  int state = p.asInt();
+  Serial.printf(">> Virtual Switch: %s\n", state ? "ON" : "OFF");
+});
+`
+
+### What's New in v1.0.4
+- **Deduplication Engine**: Built-in 300ms deduplication filter ignores re-delivered or multi-published command packets.
+- **Single Command Subscription**: Prevents duplicate topic subscription processing.
+- **Clean Serial Output**: Removed internal library Serial logs on input events so only your sketch callbacks log to Serial.
+- **ESP32 Core 3.x Compatibility**: Full support for LEDC PWM on ESP32 Core 3.0+.
