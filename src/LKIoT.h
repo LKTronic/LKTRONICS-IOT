@@ -156,6 +156,10 @@ public:
   void enableDiagnostics(bool enable = true);
   void sendDiagnostics();
 
+  // Multi-Device Node Identification (e.g. "Device 1", "Device 2", "Node 1")
+  void setDeviceName(const char* name);
+  const String& getDeviceName() const;
+
   // Custom provisioning API endpoint override (Optional)
   void setAuthUrl(const char* url);
 
@@ -175,6 +179,7 @@ private:
   unsigned long _lastDiagnosticsTime;
   String _firmwareVersion;
   int _batteryPercent;
+  String _deviceName;
 
   Client* _client;
 #if LK_HAS_NATIVE_SECURE_WIFI

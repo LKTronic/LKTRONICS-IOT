@@ -27,6 +27,7 @@ LKIoTClass::LKIoTClass()
     _lastDiagnosticsTime(0),
     _firmwareVersion("v1.0.0"),
     _batteryPercent(-1),
+    _deviceName(""),
     _pendingData(false),
     _lastFlush(0),
     _lastRetry(0) {
@@ -532,23 +533,51 @@ void LKIoTClass::enableDiagnostics(bool enable) {
   _diagnosticsEnabled = enable;
 }
 
+void LKIoTClass::setDeviceName(const char* name) {
+  if (name) _deviceName = String(name);
+}
+
+const String& LKIoTClass::getDeviceName() const {
+  return _deviceName;
+}
+
 void LKIoTClass::sendDiagnostics() {
   if (!_mqtt.connected()) return;
 
-  StaticJsonDocument<256> diagDoc;
+  StaticJsonDocument<512> diagDoc;
 
+  int rssiVal = 0;
 #if LK_HAS_NATIVE_SECURE_WIFI
   if (WiFi.status() == WL_CONNECTED) {
     diagDoc["ip"] = WiFi.localIP().toString();
-    diagDoc["rssi"] = WiFi.RSSI();
+    rssiVal = WiFi.RSSI();
+    diagDoc["rssi"] = rssiVal;
   }
 #endif
 
-  diagDoc["uptime"] = (unsigned long)(millis() / 1000UL);
+  unsigned long uptimeVal = (unsigned long)(millis() / 1000UL);
+  diagDoc["uptime"] = uptimeVal;
   diagDoc["fw"] = _firmwareVersion;
 
   if (_batteryPercent >= 0) {
     diagDoc["battery"] = _batteryPercent;
+  }
+
+  // Multi-Device Node Support (Device 1, Device 2, etc.):
+  if (_deviceName.length() > 0) {
+    diagDoc["device"] = _deviceName;
+    diagDoc["node"] = _deviceName;
+
+    String slug = _deviceName;
+    slug.toLowerCase();
+    slug.replace(" ", "");
+
+    diagDoc[slug + "_status"] = 1;
+    diagDoc[slug + "_ping"] = 1;
+    if (rssiVal != 0) diagDoc[slug + "_rssi"] = rssiVal;
+    diagDoc[slug + "_uptime"] = uptimeVal;
+    if (_batteryPercent >= 0) diagDoc[slug + "_batt"] = _batteryPercent;
+    diagDoc[slug + "_fw"] = _firmwareVersion;
   }
 
   String payload;
