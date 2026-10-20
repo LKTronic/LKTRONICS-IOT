@@ -343,6 +343,13 @@ void LKIoTClass::begin(Client& client, const char* apiKey) {
   begin(client, apiKey, LK_DEFAULT_BROKER, LK_DEFAULT_PORT, LK_DEFAULT_USER, LK_DEFAULT_PASS);
 }
 
+void LKIoTClass::begin(Client& client, const char* apiKey, const char* deviceName) {
+  if (deviceName && strlen(deviceName) > 0) {
+    setDeviceName(deviceName);
+  }
+  begin(client, apiKey);
+}
+
 void LKIoTClass::begin(Client& client, const char* apiKey, const char* brokerHost, uint16_t brokerPort,
                        const char* brokerUser, const char* brokerPass) {
   _client     = &client;
@@ -375,6 +382,13 @@ void LKIoTClass::begin(const char* apiKey) {
 
   _mqtt.setClient(*_client);
   initCommon();
+}
+
+void LKIoTClass::begin(const char* apiKey, const char* deviceName) {
+  if (deviceName && strlen(deviceName) > 0) {
+    setDeviceName(deviceName);
+  }
+  begin(apiKey);
 }
 
 void LKIoTClass::begin(const char* apiKey, const char* brokerHost, uint16_t brokerPort,
@@ -460,7 +474,12 @@ void LKIoTClass::connectMQTT() {
     Serial.println(F("[LKTRONICS-IOT] Connected to Broker!"));
 
     // Broadcast online status
-    _mqtt.publish(_topicStatus.c_str(), "{\"state\":\"online\"}", true);
+    if (_deviceName.length() > 0) {
+      String onlineMsg = "{\"state\":\"online\",\"device\":\"" + _deviceName + "\"}";
+      _mqtt.publish(_topicStatus.c_str(), onlineMsg.c_str(), true);
+    } else {
+      _mqtt.publish(_topicStatus.c_str(), "{\"state\":\"online\"}", true);
+    }
 
     // Subscribe to both command topics with QoS 1 for reliable delivery
     _mqtt.subscribe(_topicCmd.c_str(), 1);
@@ -681,6 +700,10 @@ void LKIoTClass::virtualWrite(const char* key, const char* value) {
 
 void LKIoTClass::flushTelemetry() {
   if (!_mqtt.connected() || !_pendingData) return;
+
+  if (_deviceName.length() > 0 && !_outDoc.containsKey("device")) {
+    _outDoc["device"] = _deviceName;
+  }
 
   String payload;
   serializeJson(_outDoc, payload);

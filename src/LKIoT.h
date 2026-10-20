@@ -64,6 +64,7 @@ public:
   //    Uno R4, MKR, Ethernet Shield, etc.) by passing your Client object
   // -------------------------------------------------------------------------
   void begin(Client& client, const char* apiKey);
+  void begin(Client& client, const char* apiKey, const char* deviceName);
   void begin(Client& client, const char* apiKey, const char* brokerHost, uint16_t brokerPort,
              const char* brokerUser, const char* brokerPass);
 
@@ -72,6 +73,7 @@ public:
   // 2. Convenience zero-config begin for ESP32 and ESP8266 (built-in TLS/SSL)
   // -------------------------------------------------------------------------
   void begin(const char* apiKey);
+  void begin(const char* apiKey, const char* deviceName);
   void begin(const char* apiKey, const char* brokerHost, uint16_t brokerPort,
              const char* brokerUser, const char* brokerPass);
 #endif
