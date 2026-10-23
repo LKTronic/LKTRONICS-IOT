@@ -5,7 +5,7 @@
  * Default credentials are now securely provisioned over HTTPS using
  * the Project API Key, eliminating exposed passwords from the public library.
  */
-#define LK_DEFAULT_AUTH_URL "https://iotdashboardv2.lk-tronics.com/api_device_auth.php"
+#define LK_DEFAULT_AUTH_URL "https://iot.automation.lk/api/device-auth"
 #define LK_DEFAULT_BROKER   "lktvps.vps.webdock.cloud"
 #define LK_DEFAULT_PORT     8883
 #define LK_DEFAULT_USER     "iot_dashboard"
